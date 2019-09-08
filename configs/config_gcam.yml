@@ -1,0 +1,75 @@
+model_params:
+  model: GCAM
+  num_classes: 102
+  grad_layer: "_features.7"
+
+args:
+  expdir: "src"
+  logdir: &logdir "./logs/gain"
+  baselogdir: "./logs/gain"
+
+distributed_params:
+  opt_level: O1
+
+monitoring_params:
+  project: "gain"
+
+stages:
+
+  state_params:
+    main_metric: &reduce_metric accuracy01
+    minimize_metric: False
+
+  criterion_params:
+    criterion: CrossEntropyLoss
+
+  data_params:
+    batch_size: 32
+    num_workers: 4
+    drop_last: False
+
+    image_size: &image_size 224
+
+    train_data_txt: "/media/ngxbac/Bac/dataset/IP102/train.txt"
+    valid_data_txt: "/media/ngxbac/Bac/dataset/IP102/val.txt"
+    root: "/media/ngxbac/Bac/dataset/IP102/Images"
+
+#    flower_train: "./csv/flower/train.csv"
+#    flower_valid: "./csv/flower/valid.csv"
+#    flower_root: "/media/ngxbac/Bac/dataset/flowers/"
+
+
+  stage0:
+    optimizer_params:
+      optimizer: Adam
+      lr: 0.0001
+      weight_decay: 0.0001
+
+    scheduler_params:
+      scheduler: OneCycleLR
+      num_steps: &num_epochs 10
+      lr_range: [0.0005, 0.00001]
+      warmup_steps: 3
+      momentum_range: [0.85, 0.95]
+
+    state_params:
+      num_epochs: *num_epochs
+
+    callbacks_params: &callback_params
+      loss:
+        callback: CriterionCallback
+      optimizer:
+        callback: OptimizerCallback
+      accuracy:
+        callback: AccuracyCallback
+        accuracy_args: [1]
+      scheduler:
+        callback: SchedulerCallback
+        reduce_metric: *reduce_metric
+      saver:
+        callback: CheckpointCallback
+      heatmap_saver:
+        callback: GCAMSaveHeatmapCallback
+        outdir: ""
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
